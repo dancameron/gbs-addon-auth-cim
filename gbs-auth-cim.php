@@ -1,0 +1,19 @@
+<?php
+/*
+Plugin Name: Group Buying Payment Processor - Authorize.net CIM
+Version: 1
+Plugin URI: http://sproutventure.com/wordpress/group-buying
+Description: Authorize.net CIM Add-on.
+Author: Sprout Venture
+Author URI: http://sproutventure.com/wordpress
+Plugin Author: Dan Cameron and Paul Kerin
+Contributors: Dan Cameron
+Text Domain: group-buying
+Domain Path: /lang
+*/
+
+add_action( 'gb_register_processors', 'gb_load_cim' );
+
+function gb_load_cim() {
+	require_once 'groupBuyingAuthnetCIM.class.php';
+}
