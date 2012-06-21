@@ -52,7 +52,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			add_action( self::CRON_HOOK, array( $this, 'capture_pending_payments' ) );
 		}
 
-		add_filter( 'wp_head', array( $this, 'credit_card_template_js' ), 100 );
+		add_filter( 'wp_head', array( $this, 'credit_card_template_js' ) );
 		add_filter( 'gb_payment_fields', array( $this, 'filter_payment_fields' ), 100, 3 );
 		add_filter( 'gb_payment_review_fields', array( $this, 'payment_review_fields' ), 100, 3 );
 
@@ -513,8 +513,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	}
 
 	public function credit_card_template_js() {
-		if ( gb_get_current_checkout_page() != '' ) {
-			?>
+		?>
 <script type="text/javascript" charset="utf-8">
 	jQuery(document).ready(function() {
 		jQuery(function() {
@@ -531,7 +530,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	});
 </script>
 		<?php
-		}
 	}
 
 	public function filter_payment_fields( $fields ) {
