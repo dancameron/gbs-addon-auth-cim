@@ -6,7 +6,7 @@ Plugin URI: http://sproutventure.com/wordpress/group-buying
 Description: Authorize.net CIM Add-on.
 Author: Sprout Venture
 Author URI: http://sproutventure.com/wordpress
-Plugin Author: Dan Cameron and Paul Kerin
+Plugin Author: Dan Cameron
 Contributors: Dan Cameron
 Text Domain: group-buying
 Domain Path: /lang
