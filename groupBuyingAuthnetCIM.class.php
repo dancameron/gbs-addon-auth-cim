@@ -598,6 +598,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		add_settings_section( $section, self::__( 'Authorize.net CIM' ), array( $this, 'display_settings_section' ), $page );
 		register_setting( $page, self::API_MODE_OPTION );
 		register_setting( $page, self::API_USERNAME_OPTION );
+		register_setting( $page, self::API_PASSWORD_OPTION );
 		add_settings_field( self::API_MODE_OPTION, self::__( 'Mode' ), array( $this, 'display_api_mode_field' ), $page, $section );
 		add_settings_field( self::API_USERNAME_OPTION, self::__( 'API Login (Username)' ), array( $this, 'display_api_username_field' ), $page, $section );
 		add_settings_field( self::API_PASSWORD_OPTION, self::__( 'Transaction Key (Password)' ), array( $this, 'display_api_password_field' ), $page, $section );
