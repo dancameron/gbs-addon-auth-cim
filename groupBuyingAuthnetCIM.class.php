@@ -96,11 +96,11 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		// Create Profile
 		$profile_id = $this->create_profile( $checkout, $purchase );
-		error_log( "profile_id: " . print_r( $profile_id, true ) );
+		if ( self::DEBUG ) error_log( "profile_id: " . print_r( $profile_id, true ) );
 
 		// Save shipping
 		$customer_address_id = $this->ship_to_list( $profile_id, $checkout, $purchase );
-		error_log( "customer_address: " . print_r( $customer_address_id, true ) );
+		if ( self::DEBUG ) error_log( "customer_address: " . print_r( $customer_address_id, true ) );
 
 		// Create new payment profile if using the spoofed cc number
 		if ( !isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) {
@@ -109,7 +109,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		} else {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
 		}
-		error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
+		if ( self::DEBUG ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
 
 		// Create Transaction
 		$response = $this->create_transaction( $profile_id, $payment_profile_id, $customer_address_id, $checkout, $purchase );
@@ -123,8 +123,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 
 		// convert the response object to an array for the payment record
-		$response_json  = json_encode($response);
-		$response_array = json_decode($response_json, true);
+		$response_json  = json_encode( $response );
+		$response_array = json_decode( $response_json, true );
 
 		// Setup deal info for the payment
 		$deal_info = array(); // creating purchased products array for payment below
@@ -183,7 +183,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( $display ) {
 			self::set_message( $response, self::MESSAGE_STATUS_ERROR );
 		} else {
-			error_log( $response );
+			if ( self::DEBUG ) error_log( $response );
 		}
 	}
 
@@ -199,7 +199,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$profile_id = get_user_meta( $user->ID, self::USER_META_PROFILE_ID, TRUE );
 
 		if ( $profile_id ) {
-			error_log( "stored profile_id: " . print_r( $profile_id, true ) );
+			if ( self::DEBUG ) error_log( "stored profile_id: " . print_r( $profile_id, true ) );
 			return $profile_id;
 		}
 
@@ -212,7 +212,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Request and response
 		$response = self::$cim_request->createCustomerProfile( $customerProfile );
 
-		error_log( "create customer profile response: " . print_r( $response, true ) );
+		if ( self::DEBUG ) error_log( "create customer profile response: " . print_r( $response, true ) );
 
 		// Save Profile ID
 		$new_customer_id = $response->getCustomerProfileId();
@@ -290,7 +290,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		/*/
 		// Get Payment Profile IDS
 		$payment_profile_ids = $profile->getCustomerPaymentProfileIds();
-		error_log( "payment_profile_ids: " . print_r( $payment_profile_ids, true ) );
+		if ( self::DEBUG ) error_log( "payment_profile_ids: " . print_r( $payment_profile_ids, true ) );
 
 		if ( !is_array( $payment_profile_ids ) ) {
 			return FALSE;
@@ -310,6 +310,16 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		return $payment_profile_id;
 		/**/
+	}
+
+	public static function has_payment_profile( $user_id = 0 ) {
+		if ( !$user_id ) {
+			$user_id = get_current_user_id();
+		}
+		if ( self::get_customer_profile_id( $user_id ) ) {
+			return self::payment_profile_id( $user_id );
+		}
+		return FALSE;
 	}
 
 	public static function ship_to_list( $profile_id, Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
@@ -399,7 +409,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		} else {
 			foreach ( $purchase->get_products() as $item ) {
 				if ( isset( $item['payment_method'][$this->get_payment_method()] ) ) {
-					error_log( "item: " . print_r( $item, true ) );
+					if ( self::DEBUG ) error_log( "item: " . print_r( $item, true ) );
 					$deal = Group_Buying_Deal::get_instance( $item['deal_id'] );
 					$tax = $deal->get_tax( $local_billing );
 					$taxable = ( !empty( $tax ) && $tax > '0' ) ? 'true' : '' ;
@@ -416,9 +426,9 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 				}
 			}
 		}
-		error_log( "transaction: " . print_r( $transaction , true ) );
+		if ( self::DEBUG ) error_log( "transaction: " . print_r( $transaction , true ) );
 		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthOnly', $transaction );
-		error_log( "raw response : " . print_r( $response, true ) );
+		if ( self::DEBUG ) error_log( "raw response : " . print_r( $response, true ) );
 		$transactionResponse = $response->getTransactionResponse();
 		$transactionId = $transactionResponse->transaction_id;
 
@@ -483,10 +493,10 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					// Auth.net will not allow for multiple captures on a single auth
 					// $transaction->transId = $data['transaction_id'];
 					// $transaction_response = self::$cim_request->createCustomerProfileTransaction( 'PriorAuthCapture', $transaction );
-					
-					error_log( "capture trans raw response: " . print_r( $transaction_response, true ) );
+
+					if ( self::DEBUG ) error_log( "capture trans raw response: " . print_r( $transaction_response, true ) );
 					$response = $transaction_response->getTransactionResponse();
-					error_log( "capture trans response: " . print_r( $response, true ) );
+					if ( self::DEBUG ) error_log( "capture trans response: " . print_r( $response, true ) );
 					$transaction_id = $response->transaction_id;
 
 					if ( $transaction_id ) { // Check to make sure the response was valid
@@ -513,12 +523,13 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	}
 
 	public function credit_card_template_js() {
-		?>
+		if ( self::has_payment_profile() ) {
+?>
 <script type="text/javascript" charset="utf-8">
 	jQuery(document).ready(function() {
 		jQuery(function() {
 			jQuery('.gb_credit_card_field_wrap').fadeOut();
-		    jQuery('[name="gb_credit_payment_method"]').click(function(){
+		    jQuery('[name="gb_credit_payment_method"]').live( 'click', function(){
 		    	var selected = jQuery(this).val();   // get value of checked radio button
 		    	if (selected == 'cim') {
 		    		jQuery('.gb_credit_card_field_wrap').fadeOut();
@@ -529,40 +540,41 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		});
 	});
 </script>
-		<?php
+			<?php
+		}
 	}
 
 	public function filter_payment_fields( $fields ) {
-		if ( $this->get_customer_profile_id() ) {
-			if ( $this->payment_profile_id() ) {
-				$customer_profile = self::get_customer_profile( $profile_id );
-				$fields['payment_method'] = array(
-					'type' => 'radios',
-					'weight' => -10,
-					'label' => self::__( 'Payment Method' ),
-					'required' => TRUE,
-					'options' => array(
-						'cim' => self::__( 'Credit Card: ' ) . $customer_profile->xpath_xml->profile->paymentProfiles[0]->payment->creditCard->cardNumber,
-						'cc' => self::__( 'Use Different Credit Card' )
-					),
-					'default' => 'cim',
-				);
-			}
+		if ( self::has_payment_profile() ) {
+			$customer_profile = self::get_customer_profile( $profile_id );
+			$fields['payment_method'] = array(
+				'type' => 'radios',
+				'weight' => -10,
+				'label' => self::__( 'Payment Method' ),
+				'required' => TRUE,
+				'options' => array(
+					'cim' => self::__( 'Credit Card: ' ) . $customer_profile->xpath_xml->profile->paymentProfiles[0]->payment->creditCard->cardNumber,
+					'cc' => self::__( 'Use Different Credit Card' )
+				),
+				'default' => 'cim',
+			);
 		}
 		return $fields;
 	}
 
 	public function payment_review_fields( $fields, $processor, Group_Buying_Checkouts $checkout ) {
-		if ( $fields['cc_number']['value'] == '' ) {
-			$fields['cim'] = array(
-				'label' => self::__( 'Primary Method' ),
-				'value' => self::__( 'Credit Card' ),
-				'weight' => 10,
-			);
-			unset( $fields['cc_name'] );
-			unset( $fields['cc_number'] );
-			unset( $fields['cc_expiration'] );
-			unset( $fields['cc_cvv'] );
+		if ( $customer_profile = self::has_payment_profile() ) {
+			if ( $fields['cc_number']['value'] == '' ) {
+				$fields['cim'] = array(
+					'label' => self::__( 'Primary Method' ),
+					'value' => self::__( 'Credit Card' ),
+					'weight' => 10,
+				);
+				unset( $fields['cc_name'] );
+				unset( $fields['cc_number'] );
+				unset( $fields['cc_expiration'] );
+				unset( $fields['cc_cvv'] );
+			}
 		}
 		return $fields;
 	}
