@@ -112,7 +112,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		} else {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
 		}
-		if ( !$customer_address_id ) {
+		if ( !$payment_profile_id ) {
 			self::set_error_messages('Payment profile failed.');
 			return FALSE;
 		}
@@ -350,6 +350,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			$address2->faxNumber = '';
 
 			$response = self::$cim_request->createCustomerShippingAddress( $profile_id, $address2 );
+			if ( self::DEBUG ) error_log( "shipping address response: " . print_r( $response, true ) );
 			return $response->getCustomerAddressId();
 		}
 
@@ -367,6 +368,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$address->faxNumber = '';
 
 		$response = self::$cim_request->createCustomerShippingAddress( $profile_id, $address );
+		if ( self::DEBUG ) error_log( "shipping address response: " . print_r( $response, true ) );
 		$customer_address_id = $response->getCustomerAddressId();
 
 		// In case there's an error, check to see if the address is in the profile
