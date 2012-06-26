@@ -440,6 +440,11 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( self::DEBUG ) error_log( "transaction: " . print_r( $transaction , true ) );
 		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthOnly', $transaction );
 		if ( self::DEBUG ) error_log( "raw response : " . print_r( $response, true ) );
+		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
+			self::set_error_messages( $response->xpath_xml->messages->message->text );
+			return FALSE;
+		}
+
 		$transactionResponse = $response->getTransactionResponse();
 		$transactionId = $transactionResponse->transaction_id;
 
