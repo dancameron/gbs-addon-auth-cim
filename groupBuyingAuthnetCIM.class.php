@@ -579,18 +579,16 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	}
 
 	public function payment_review_fields( $fields, $processor, Group_Buying_Checkouts $checkout ) {
-		if ( $customer_profile = self::has_payment_profile() ) {
-			if ( $fields['cc_number']['value'] == '' ) {
-				$fields['cim'] = array(
-					'label' => self::__( 'Primary Method' ),
-					'value' => self::__( 'Credit Card' ),
-					'weight' => 10,
-				);
-				unset( $fields['cc_name'] );
-				unset( $fields['cc_number'] );
-				unset( $fields['cc_expiration'] );
-				unset( $fields['cc_cvv'] );
-			}
+		if ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] == 'cim' ) {
+			$fields['cim'] = array(
+				'label' => self::__( 'Primary Method' ),
+				'value' => self::__( 'Credit Card' ),
+				'weight' => 10,
+			);
+			unset( $fields['cc_name'] );
+			unset( $fields['cc_number'] );
+			unset( $fields['cc_expiration'] );
+			unset( $fields['cc_cvv'] );
 		}
 		return $fields;
 	}
