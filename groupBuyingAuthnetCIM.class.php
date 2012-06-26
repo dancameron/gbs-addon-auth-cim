@@ -7,7 +7,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	const API_USERNAME_OPTION = 'gb_auth_cim_username';
 	const API_PASSWORD_OPTION = 'gb_auth_cim_password';
 	const API_MODE_OPTION = 'gb_auth_cim_mode';
-	const USER_META_PROFILE_ID = 'gb_cim_profile_id';
+	const USER_META_PROFILE_ID = 'gb_cim_profile_id_2';
 	const PAYMENT_METHOD = 'Credit (Authorize.net CIM)';
 	protected static $instance;
 	protected static $cim_request;
@@ -97,6 +97,9 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Create Profile
 		$profile_id = $this->create_profile( $checkout, $purchase );
 		if ( self::DEBUG ) error_log( "profile_id: " . print_r( $profile_id, true ) );
+		if ( !$profile_id ) {
+			return FALSE;
+		}
 
 		// Save shipping
 		$customer_address_id = $this->ship_to_list( $profile_id, $checkout, $purchase );
@@ -108,6 +111,10 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			$payment_profile_id = $this->add_payment_profile( $profile_id, $checkout, $purchase );
 		} else {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
+		}
+		if ( !$customer_address_id ) {
+			self::set_error_messages('Payment profile failed.');
+			return FALSE;
 		}
 		if ( self::DEBUG ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
 
@@ -181,7 +188,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	 */
 	private function set_error_messages( $response, $display = TRUE ) {
 		if ( $display ) {
-			self::set_message( $response, self::MESSAGE_STATUS_ERROR );
+			self::set_message( (string) $response, self::MESSAGE_STATUS_ERROR );
 		} else {
 			if ( self::DEBUG ) error_log( $response );
 		}
@@ -212,6 +219,10 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Request and response
 		$response = self::$cim_request->createCustomerProfile( $customerProfile );
 
+		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
+			self::set_error_messages( $response->xpath_xml->messages->message->text );
+			return FALSE;
+		}
 		if ( self::DEBUG ) error_log( "create customer profile response: " . print_r( $response, true ) );
 
 		// Save Profile ID
