@@ -105,8 +105,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$customer_address_id = $this->ship_to_list( $profile_id, $checkout, $purchase );
 		if ( self::DEBUG ) error_log( "customer_address: " . print_r( $customer_address_id, true ) );
 
-		// Create new payment profile if using the spoofed cc number
-		if ( !isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) {
+		// Create new payment profile if using a different cc number
+		if ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) {
 			// Add Payment Profile
 			$payment_profile_id = $this->add_payment_profile( $profile_id, $checkout, $purchase );
 		} else {
@@ -603,7 +603,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	 * @return void
 	 */
 	public function process_payment_page( Group_Buying_Checkouts $checkout ) {
-		if ( !isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) {
+		if ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) {
 			$fields = $this->payment_fields( $checkout );
 			foreach ( array_keys( $fields ) as $key ) {
 				if ( $key == 'cc_number' ) { // catch the cc_number so it can be sanatized
