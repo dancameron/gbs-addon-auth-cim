@@ -46,7 +46,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		add_action( 'admin_init', array( $this, 'register_settings' ), 10, 0 );
 		add_action( 'purchase_completed', array( $this, 'capture_purchase' ), 10, 1 );
-		if ( self::DEBUG ) {
+		if ( GBS_DEV ) {
 			add_action( 'init', array( $this, 'capture_pending_payments' ) );
 		} else {
 			add_action( self::CRON_HOOK, array( $this, 'capture_pending_payments' ) );
@@ -96,33 +96,36 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		// Create Profile
 		$profile_id = $this->create_profile( $checkout, $purchase );
-		if ( self::DEBUG ) error_log( "profile_id: " . print_r( $profile_id, true ) );
+		if ( GBS_DEV ) error_log( "profile_id: " . print_r( $profile_id, true ) );
 		if ( !$profile_id ) {
 			return FALSE;
 		}
 
 		// Save shipping
 		$customer_address_id = $this->ship_to_list( $profile_id, $checkout, $purchase );
-		if ( self::DEBUG ) error_log( "customer_address: " . print_r( $customer_address_id, true ) );
+		if ( GBS_DEV ) error_log( "customer_address: " . print_r( $customer_address_id, true ) );
 
 		// Create new payment profile if using a different cc number
 		if ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) {
 			// Add Payment Profile
+			if ( GBS_DEV ) error_log( "old payment profile: " . print_r( $this->payment_profile_id( $profile_id ), true ) );
 			$payment_profile_id = $this->add_payment_profile( $profile_id, $checkout, $purchase );
+			if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
 		} else {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
 		}
 		if ( !$payment_profile_id ) {
+			//self::destroy_profile( $checkout, $purchase );
 			self::set_error_messages('Payment profile failed.');
 			return FALSE;
 		}
-		if ( self::DEBUG ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
+		if ( GBS_DEV ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
 
 		// Create Transaction
 		$response = $this->create_transaction( $profile_id, $payment_profile_id, $customer_address_id, $checkout, $purchase );
 		$transaction_id = $response->transaction_id;
 
-		if ( self::DEBUG ) error_log( '----------Response----------' . print_r( $response, TRUE ) );
+		if ( GBS_DEV ) error_log( '----------Response----------' . print_r( $response, TRUE ) );
 
 		if ( $response->response_reason_code != 1 ) {
 			$this->set_error_messages( $response->response_reason_text );
@@ -190,7 +193,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( $display ) {
 			self::set_message( (string) $response, self::MESSAGE_STATUS_ERROR );
 		} else {
-			if ( self::DEBUG ) error_log( $response );
+			if ( GBS_DEV ) error_log( $response );
 		}
 	}
 
@@ -205,8 +208,9 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$user = get_userdata( $purchase->get_user() );
 		$profile_id = get_user_meta( $user->ID, self::USER_META_PROFILE_ID, TRUE );
 
-		if ( $profile_id ) {
-			if ( self::DEBUG ) error_log( "stored profile_id: " . print_r( $profile_id, true ) );
+		if ( GBS_DEV ) error_log( "stored profile_id: " . print_r( $profile_id, true ) );
+
+		if ( $profile_id ) {			
 			return $profile_id;
 		}
 
@@ -219,11 +223,12 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Request and response
 		$response = self::$cim_request->createCustomerProfile( $customerProfile );
 
+		if ( GBS_DEV ) error_log( "create customer profile response: " . print_r( $response, true ) );
+		
 		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
 			self::set_error_messages( $response->xpath_xml->messages->message->text );
 			return FALSE;
 		}
-		if ( self::DEBUG ) error_log( "create customer profile response: " . print_r( $response, true ) );
 
 		// Save Profile ID
 		$new_customer_id = $response->getCustomerProfileId();
@@ -231,6 +236,13 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		return $new_customer_id;
 
+	}
+
+	public static function destroy_profile( Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
+		$user = get_userdata( $purchase->get_user() );
+		//$profile_id = get_user_meta( $user->ID, self::USER_META_PROFILE_ID, TRUE );
+
+		delete_user_meta( $user->ID, self::USER_META_PROFILE_ID );
 	}
 
 	public static function get_customer_profile_id( $user_id = 0 ) {
@@ -254,7 +266,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			return FALSE;
 		}
 		$customer_profile = self::$cim_request->getCustomerProfile( $profile_id );
-		//if ( self::DEBUG ) error_log( "------------- Profile ----------: " . print_r( $profile, true ) );
+		//if ( GBS_DEV ) error_log( "------------- Profile ----------: " . print_r( $profile, true ) );
 		return $customer_profile;
 	}
 
@@ -266,7 +278,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	 * @return array
 	 */
 	public function add_payment_profile( $profile_id, Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
-
 		// Create new customer profile
 		$paymentProfile = new AuthorizeNetPaymentProfile;
 		$paymentProfile->customerType = "individual";
@@ -274,13 +285,16 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$paymentProfile->payment->creditCard->expirationDate = $this->cc_cache['cc_expiration_year'] . '-' . sprintf( "%02s", $this->cc_cache['cc_expiration_month'] );
 		$paymentProfile->payment->creditCard->cardCode = $this->cc_cache['cc_cvv'];
 		$customerProfile->paymentProfiles[] = $paymentProfile;
+		if ( GBS_DEV ) error_log( "paymentProfile: " . print_r( $paymentProfile, true ) );
 		$response = self::$cim_request->createCustomerPaymentProfile( $profile_id, $paymentProfile );
+		if ( GBS_DEV ) error_log( "paymentProfile response: " . print_r( $response, true ) );
 
 		$payment_profile_id = $response->getPaymentProfileId();
+		if ( GBS_DEV ) error_log( "payment_profile_id: " . print_r( $payment_profile_id, true ) );
 
 		// In case there's an error (e.g. duplicate addition), check to see if the payment profile id is in the profile
 		if ( !$payment_profile_id ) {
-			$payment_profile_id = $this->payment_profile_id();
+			$payment_profile_id = $this->payment_profile_id( $profile_id );
 		}
 
 		return $payment_profile_id;
@@ -301,16 +315,16 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		/*/
 		// Get Payment Profile IDS
 		$payment_profile_ids = $profile->getCustomerPaymentProfileIds();
-		if ( self::DEBUG ) error_log( "payment_profile_ids: " . print_r( $payment_profile_ids, true ) );
+		if ( GBS_DEV ) error_log( "payment_profile_ids: " . print_r( $payment_profile_ids, true ) );
 
 		if ( !is_array( $payment_profile_ids ) ) {
 			return FALSE;
 		}
 
 		foreach ( $payment_profile_ids as $id ) {
-			if ( self::DEBUG ) error_log( "Payment Profile : " . print_r( $profile->getCustomerPaymentProfile( $profile_id, $id ), true ) );
+			if ( GBS_DEV ) error_log( "Payment Profile : " . print_r( $profile->getCustomerPaymentProfile( $profile_id, $id ), true ) );
 		}
-		if ( self::DEBUG ) error_log( "-------- Payment Profile IDS: " . print_r( $payment_profile_ids, true ) );
+		if ( GBS_DEV ) error_log( "-------- Payment Profile IDS: " . print_r( $payment_profile_ids, true ) );
 
 		// Get the latest
 		$payment_profile_id = $payment_profile_ids[0];
@@ -350,7 +364,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			$address2->faxNumber = '';
 
 			$response = self::$cim_request->createCustomerShippingAddress( $profile_id, $address2 );
-			if ( self::DEBUG ) error_log( "shipping address response: " . print_r( $response, true ) );
+			if ( GBS_DEV ) error_log( "shipping address response: " . print_r( $response, true ) );
 			return $response->getCustomerAddressId();
 		}
 
@@ -368,7 +382,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$address->faxNumber = '';
 
 		$response = self::$cim_request->createCustomerShippingAddress( $profile_id, $address );
-		if ( self::DEBUG ) error_log( "shipping address response: " . print_r( $response, true ) );
+		if ( GBS_DEV ) error_log( "shipping address response: " . print_r( $response, true ) );
 		$customer_address_id = $response->getCustomerAddressId();
 
 		// In case there's an error, check to see if the address is in the profile
@@ -422,7 +436,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		} else {
 			foreach ( $purchase->get_products() as $item ) {
 				if ( isset( $item['payment_method'][$this->get_payment_method()] ) ) {
-					if ( self::DEBUG ) error_log( "item: " . print_r( $item, true ) );
+					if ( GBS_DEV ) error_log( "item: " . print_r( $item, true ) );
 					$deal = Group_Buying_Deal::get_instance( $item['deal_id'] );
 					$tax = $deal->get_tax( $local_billing );
 					$taxable = ( !empty( $tax ) && $tax > '0' ) ? 'true' : '' ;
@@ -439,9 +453,9 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 				}
 			}
 		}
-		if ( self::DEBUG ) error_log( "transaction: " . print_r( $transaction , true ) );
+		if ( GBS_DEV ) error_log( "transaction: " . print_r( $transaction , true ) );
 		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthOnly', $transaction );
-		if ( self::DEBUG ) error_log( "raw response : " . print_r( $response, true ) );
+		if ( GBS_DEV ) error_log( "raw response : " . print_r( $response, true ) );
 		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
 			self::set_error_messages( $response->xpath_xml->messages->message->text );
 			return FALSE;
@@ -507,14 +521,15 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					$transaction->customerShippingAddressId = $data['customer_address_id'];
 					$transaction->order->invoiceNumber = $payment->get_id();
 					$transaction_response = self::$cim_request->createCustomerProfileTransaction( 'AuthCapture', $transaction );
-
+					
 					// Auth.net will not allow for multiple captures on a single auth
 					// $transaction->transId = $data['transaction_id'];
 					// $transaction_response = self::$cim_request->createCustomerProfileTransaction( 'PriorAuthCapture', $transaction );
 
-					if ( self::DEBUG ) error_log( "capture trans raw response: " . print_r( $transaction_response, true ) );
+					if ( GBS_DEV ) error_log( "transaction sent: " . print_r( $transaction, true ) );
+					if ( GBS_DEV ) error_log( "capture trans raw response: " . print_r( $transaction_response, true ) );
 					$response = $transaction_response->getTransactionResponse();
-					if ( self::DEBUG ) error_log( "capture trans response: " . print_r( $response, true ) );
+					if ( GBS_DEV ) error_log( "capture trans response: " . print_r( $response, true ) );
 					$transaction_id = $response->transaction_id;
 
 					if ( $transaction_id ) { // Check to make sure the response was valid
@@ -617,7 +632,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			}
 			$this->validate_credit_card( $this->cc_cache, $checkout );
 		}
-
 	}
 
 	public function register_settings() {
