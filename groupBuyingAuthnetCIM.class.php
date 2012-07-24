@@ -501,7 +501,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 					// Create Auth & Capture Transaction
 					$transaction = new AuthorizeNetTransaction;
-					$transaction->amount = (int)gb_get_number_format( $total );
+					$transaction->amount = gb_get_number_format( $total );
 					$transaction->customerProfileId = $data['profile_id'];
 					$transaction->customerPaymentProfileId = $data['payment_profile_id'];
 					$transaction->customerShippingAddressId = $data['customer_address_id'];
