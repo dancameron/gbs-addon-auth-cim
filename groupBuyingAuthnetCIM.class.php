@@ -505,7 +505,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					$transaction->customerProfileId = $data['profile_id'];
 					$transaction->customerPaymentProfileId = $data['payment_profile_id'];
 					$transaction->customerShippingAddressId = $data['customer_address_id'];
-					$transaction->order->invoiceNumber = $payment->get_purchase();
+					$transaction->order->invoiceNumber = $payment->get_id();
 					$transaction_response = self::$cim_request->createCustomerProfileTransaction( 'AuthCapture', $transaction );
 
 					// Auth.net will not allow for multiple captures on a single auth
