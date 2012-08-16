@@ -228,20 +228,27 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( GBS_DEV ) error_log( "create customer profile response: " . print_r( $response, true ) );
 		
 		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
-			if ( strpos( $response->xpath_xml->messages->message->text, 'duplicate record with ID' ) ) {	
-				self::set_error_messages( gb__('A duplicate profile was found. Please contact the site administrator.') );
+			$error_message = $response->xpath_xml->messages->message->text;
+
+			// If the ID already exists lets just tie it to this user, hopefully the CIM profile is based on more than just email.
+			if ( strpos( $error_message, 'duplicate record with ID' ) ) {	
+				preg_match( '~ID\s+(\S+)~', $error_message, $matches );
+				$new_customer_id = $matches[1];
+				if ( !is_numeric( $new_customer_id )) {
+					self::set_error_messages( gb__('A duplicate profile was found. Please contact the site administrator.') );
+					return FALSE;
+				}
+			} else {
+				self::set_error_messages( $response->xpath_xml->messages->message->text );
 				return FALSE;
-				// If the customer id already exists in the system attempt to create a new one.
-				// return self::create_profile( $checkout, $purchase, TRUE );
 			}
-			self::set_error_messages( $response->xpath_xml->messages->message->text );
-			return FALSE;
 		}
-
+		else {
+			$new_customer_id = $response->getCustomerProfileId();
+		}
 		// Save Profile ID
-		$new_customer_id = $response->getCustomerProfileId();
 		update_user_meta( $user->ID, self::USER_META_PROFILE_ID, $new_customer_id );
-
+		// Return
 		return $new_customer_id;
 
 	}
