@@ -16,7 +16,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	private $api_password = '';
 
 
-	protected static function get_instance() {
+	public static function get_instance() {
 		if ( !( isset( self::$instance ) && is_a( self::$instance, __CLASS__ ) ) ) {
 			self::$instance = new self();
 		}
