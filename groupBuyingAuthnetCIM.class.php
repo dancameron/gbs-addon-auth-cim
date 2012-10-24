@@ -31,6 +31,13 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 	}
 
+	public function get_test_mode()	{
+		if ( self::is_sandbox() ) {
+			return 'none';
+		}
+		return 'liveMode';
+	}
+
 	public function get_payment_method() {
 		return self::PAYMENT_METHOD;
 	}
@@ -109,14 +116,14 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( !isset( $_POST['gb_credit_payment_method'] ) || ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) ) {
 			// Add Payment Profile
 			if ( GBS_DEV ) error_log( "old payment profile: " . print_r( $this->payment_profile_id( $profile_id ), true ) );
-			$payment_profile_id = $this->add_payment_profile( $profile_id, $checkout, $purchase );
+			$payment_profile_id = $this->add_payment_profile( $profile_id, $customer_address_id, $checkout, $purchase );
 			if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
 		} else {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
 		}
 		if ( !$payment_profile_id ) {
-			//self::destroy_profile( $checkout, $purchase );
-			self::set_error_messages('Credit Card not accepted. (err. 3742)');
+			// self::destroy_profile( $checkout, $purchase );
+			self::set_error_messages( 'Payment Error: 3742' );
 			return FALSE;
 		}
 		if ( GBS_DEV ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
@@ -275,24 +282,51 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	 * @param Group_Buying_Purchase $purchase
 	 * @return array
 	 */
-	public function add_payment_profile( $profile_id, Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
+	public function add_payment_profile( $profile_id, $customer_address_id, Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
 		// Create new customer profile
 		$paymentProfile = new AuthorizeNetPaymentProfile;
 		$paymentProfile->customerType = "individual";
+		$paymentProfile->billTo->firstName = $checkout->cache['billing']['first_name'];
+		$paymentProfile->billTo->lastName = $checkout->cache['billing']['last_name'];
+		$paymentProfile->billTo->address = $checkout->cache['billing']['street'];
+		$paymentProfile->billTo->city = $checkout->cache['billing']['city'];
+		$paymentProfile->billTo->state = $checkout->cache['billing']['zone'];
+		$paymentProfile->billTo->zip = $checkout->cache['billing']['postal_code'];
+		$paymentProfile->billTo->country = $checkout->cache['billing']['country'];
+		$paymentProfile->billTo->phoneNumber = '';
+		$paymentProfile->billTo->customerAddressId = $customer_address_id;
+		// CC info
 		$paymentProfile->payment->creditCard->cardNumber = $this->cc_cache['cc_number'];
 		$paymentProfile->payment->creditCard->expirationDate = $this->cc_cache['cc_expiration_year'] . '-' . sprintf( "%02s", $this->cc_cache['cc_expiration_month'] );
 		$paymentProfile->payment->creditCard->cardCode = $this->cc_cache['cc_cvv'];
-		$customerProfile->paymentProfiles[] = $paymentProfile;
+	
 		if ( GBS_DEV ) error_log( "paymentProfile: " . print_r( $paymentProfile, true ) );
-		$response = self::$cim_request->createCustomerPaymentProfile( $profile_id, $paymentProfile );
-		if ( GBS_DEV ) error_log( "paymentProfile response: " . print_r( $response, true ) );
 
+		// Create
+		$response = self::$cim_request->createCustomerPaymentProfile( $profile_id, $paymentProfile, self::get_test_mode() );
+		if ( GBS_DEV ) error_log( "paymentProfile response: " . print_r( $response, true ) );
+		
+		// Validate
+		$validation = $response->getValidationResponse();
+		if ( $validation->error ) {
+			if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
+			self::set_error_messages( $validation->response_reason_text );
+			return FALSE;
+		}
+
+		// Get profile id
 		$payment_profile_id = $response->getPaymentProfileId();
 		if ( GBS_DEV ) error_log( "payment_profile_id: " . print_r( $payment_profile_id, true ) );
 
 		// In case there's an error (e.g. duplicate addition), check to see if the payment profile id is in the profile
 		if ( !$payment_profile_id ) {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
+		}
+
+		// In case no validation response is given but there's an error.
+		if ( !$payment_profile_id && isset( $response->xml->messages->message->text ) ) {
+			self::set_error_messages( $response->xml->messages->message->text );
+			return FALSE;
 		}
 
 		return $payment_profile_id;
