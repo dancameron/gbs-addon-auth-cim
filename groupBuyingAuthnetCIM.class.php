@@ -188,6 +188,90 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		return $payment;
 	}
 
+	public function process_api_payment( Group_Buying_Purchase $purchase, $cc_data, $amount, $cart, $billing_address, $shipping_address, $data ) {
+
+		self::init_authrequest();
+
+		if ( !isset( $data['profile_id'] ) || !isset( $data['customer_address_id'] ) || !isset( $data['payment_profile_id'] ))
+			return;
+
+		// Create Auth & Capture Transaction
+		$transaction = new AuthorizeNetTransaction;
+		$transaction->amount = gb_get_number_format( $amount );
+		// Removed tax and shipping
+		$transaction->customerProfileId = $data['profile_id'];
+		$transaction->customerPaymentProfileId = $data['payment_profile_id'];
+		$transaction->customerShippingAddressId = $data['customer_address_id'];
+		$transaction->order->invoiceNumber = (int)$purchase->get_id();
+
+		foreach ( $purchase->get_products() as $item ) {
+			$deal = Group_Buying_Deal::get_instance( $item['deal_id'] );
+			$lineItem              = new AuthorizeNetLineItem;
+			$lineItem->itemId      = $item['deal_id'];
+			$lineItem->name        = substr( $deal->get_slug(), 0, 31 );
+			$lineItem->description = substr( $deal->get_title(), 0, 255 );
+			$lineItem->quantity    = $item['quantity'];
+			$lineItem->unitPrice   = gb_get_number_format( $item['unit_price'] );
+			$lineItem->taxable     = '';
+			$transaction->lineItems[] = $lineItem;
+		}
+
+		// Authorize
+		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthOnly', $transaction );
+		
+		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
+			return $response;
+		}
+
+		// Juggle
+		$transaction_response = $response->getTransactionResponse();
+		$transaction_id = $transaction_response->transaction_id;
+
+		if ( GBS_DEV ) error_log( '----------Response----------' . print_r( $transaction_response, TRUE ) );
+
+		if ( $transaction_response->response_reason_code != 1 ) {
+			return $transaction_response;
+		}
+
+		// convert the response object to an array for the payment record
+		$response_json  = json_encode( $transaction_response );
+		$response_array = json_decode( $response_json, true );
+
+		// Setup deal info for the payment
+		$deal_info = array(); // creating purchased products array for payment below
+		foreach ( $purchase->get_products() as $item ) {
+			if ( isset( $item['payment_method'][$this->get_payment_method()] ) ) {
+				if ( !isset( $deal_info[$item['deal_id']] ) ) {
+					$deal_info[$item['deal_id']] = array();
+				}
+				$deal_info[$item['deal_id']][] = $item;
+			}
+		}
+
+		$payment_id = Group_Buying_Payment::new_payment( array(
+				'payment_method' => $this->get_payment_method(),
+				'purchase' => $purchase->get_id(),
+				'amount' => $amount,
+				'data' => array(
+					'transaction_id' => $transaction_id,
+					'profile_id' => $data['profile_id'],
+					'payment_profile_id' => $data['payment_profile_id'],
+					'customer_address_id' => $data['customer_address_id'],
+					'api_response' => $response_array,
+					'uncaptured_deals' => $deal_info,
+					//'masked_cc_number' => $this->mask_card_number( $this->cc_cache['cc_number'] ), // save for possible credits later
+				),
+				'deals' => $deal_info,
+				'shipping_address' => $shipping_address
+			), Group_Buying_Payment::STATUS_AUTHORIZED );
+		if ( !$payment_id ) {
+			return FALSE;
+		}
+		$payment = Group_Buying_Payment::get_instance( $payment_id );
+		do_action( 'payment_authorized', $payment );
+		return $payment;
+	}
+
 
 	/**
 	 * Grabs error messages from a Authorize response and displays them to the user
