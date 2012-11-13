@@ -52,12 +52,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$this->api_mode = get_option( self::API_MODE_OPTION, self::MODE_TEST );
 
 		add_action( 'admin_init', array( $this, 'register_settings' ), 10, 0 );
-		add_action( 'purchase_completed', array( $this, 'capture_purchase' ), 10, 1 );
-		if ( GBS_DEV ) {
-			add_action( 'init', array( $this, 'capture_pending_payments' ) );
-		} else {
-			add_action( self::CRON_HOOK, array( $this, 'capture_pending_payments' ) );
-		}
 
 		add_filter( 'wp_head', array( $this, 'credit_card_template_js' ) );
 		add_filter( 'gb_payment_fields', array( $this, 'filter_payment_fields' ), 100, 3 );
@@ -65,6 +59,12 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		remove_action( 'gb_checkout_action_'.Group_Buying_Checkouts::PAYMENT_PAGE, array( $this, 'process_payment_page' ) );
 		add_action( 'gb_checkout_action_'.Group_Buying_Checkouts::PAYMENT_PAGE, array( $this, 'process_payment_page' ), 20, 1 );
+
+
+		// Limitations
+		add_filter( 'group_buying_template_meta_boxes/deal-expiration.php', array( $this, 'display_exp_meta_box' ), 10 );
+		add_filter( 'group_buying_template_meta_boxes/deal-price.php', array( $this, 'display_price_meta_box' ), 10 );
+		add_filter( 'group_buying_template_meta_boxes/deal-limits.php', array( $this, 'display_limits_meta_box' ), 10 );
 
 	}
 
@@ -174,7 +174,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					'payment_profile_id' => $payment_profile_id,
 					'customer_address_id' => $customer_address_id,
 					'api_response' => $response_array,
-					'uncaptured_deals' => $deal_info,
+					'captured_deals' => $deal_info,
 					//'masked_cc_number' => $this->mask_card_number( $this->cc_cache['cc_number'] ), // save for possible credits later
 				),
 				'deals' => $deal_info,
@@ -185,6 +185,12 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 		$payment = Group_Buying_Payment::get_instance( $payment_id );
 		do_action( 'payment_authorized', $payment );
+
+		// Mark captured
+		do_action( 'payment_captured', $payment, array_keys( $items_to_capture ) );
+		$payment->set_status( Group_Buying_Payment::STATUS_COMPLETE );
+		do_action( 'payment_complete', $payment );
+
 		return $payment;
 	}
 
@@ -258,7 +264,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					'payment_profile_id' => $data['payment_profile_id'],
 					'customer_address_id' => $data['customer_address_id'],
 					'api_response' => $response_array,
-					'uncaptured_deals' => $deal_info,
+					'captured_deals' => $deal_info,
 					//'masked_cc_number' => $this->mask_card_number( $this->cc_cache['cc_number'] ), // save for possible credits later
 				),
 				'deals' => $deal_info,
@@ -269,6 +275,12 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 		$payment = Group_Buying_Payment::get_instance( $payment_id );
 		do_action( 'payment_authorized', $payment );
+
+		// Mark captured
+		do_action( 'payment_captured', $payment, array_keys( $items_to_capture ) );
+		$payment->set_status( Group_Buying_Payment::STATUS_COMPLETE );
+		do_action( 'payment_complete', $payment );
+
 		return $payment;
 	}
 
@@ -577,7 +589,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			}
 		}
 		if ( GBS_DEV ) error_log( "transaction: " . print_r( $transaction , true ) );
-		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthOnly', $transaction );
+		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthCapture', $transaction );
 		if ( GBS_DEV ) error_log( "raw response : " . print_r( $response, true ) );
 		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
 			self::set_error_messages( $response->xpath_xml->messages->message->text );
@@ -588,94 +600,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$transactionId = $transactionResponse->transaction_id;
 
 		return $transactionResponse;
-	}
-
-	/**
-	 * Capture a pre-authorized payment
-	 *
-	 * @param Group_Buying_Purchase $purchase
-	 * @return void
-	 */
-	public function capture_purchase( Group_Buying_Purchase $purchase ) {
-		$payments = Group_Buying_Payment::get_payments_for_purchase( $purchase->get_id() );
-		foreach ( $payments as $payment_id ) {
-			$payment = Group_Buying_Payment::get_instance( $payment_id );
-			$this->capture_payment( $payment );
-		}
-	}
-
-	/**
-	 * Try to capture all pending payments
-	 *
-	 * @return void
-	 */
-	public function capture_pending_payments() {
-		$payments = Group_Buying_Payment::get_pending_payments();
-		foreach ( $payments as $payment_id ) {
-			$payment = Group_Buying_Payment::get_instance( $payment_id );
-			$this->capture_payment( $payment );
-		}
-	}
-
-	public  function capture_payment( Group_Buying_Payment $payment ) {
-
-		// is this the right payment processor? does the payment still need processing?
-		if ( $payment->get_payment_method() == $this->get_payment_method() && $payment->get_status() != Group_Buying_Payment::STATUS_COMPLETE ) {
-			$data = $payment->get_data();
-			//wp_delete_post( $payment->get_id(), TRUE);
-			// Do we have a transaction ID to use for the capture?
-			if ( isset( $data['profile_id'] ) && isset( $data['payment_profile_id'] ) ) {
-				$total = 0;
-				$items_to_capture = $this->items_to_capture( $payment );
-
-				if ( $items_to_capture ) {
-					$status = ( count( $items_to_capture ) < count( $data['uncaptured_deals'] ) )?'NotComplete':'Complete';
-
-					// Total to capture
-					foreach ( $items_to_capture as $price ) {
-						$total += $price;
-					}
-
-					// Create Auth & Capture Transaction
-					$transaction = new AuthorizeNetTransaction;
-					$transaction->amount = gb_get_number_format( $total );
-					$transaction->customerProfileId = $data['profile_id'];
-					$transaction->customerPaymentProfileId = $data['payment_profile_id'];
-					$transaction->customerShippingAddressId = $data['customer_address_id'];
-					$transaction->order->invoiceNumber = $payment->get_id();
-					$transaction_response = self::$cim_request->createCustomerProfileTransaction( 'AuthCapture', $transaction );
-					
-					// Auth.net will not allow for multiple captures on a single auth
-					// $transaction->transId = $data['transaction_id'];
-					// $transaction_response = self::$cim_request->createCustomerProfileTransaction( 'PriorAuthCapture', $transaction );
-
-					if ( GBS_DEV ) error_log( "transaction sent: " . print_r( $transaction, true ) );
-					if ( GBS_DEV ) error_log( "capture trans raw response: " . print_r( $transaction_response, true ) );
-					$response = $transaction_response->getTransactionResponse();
-					if ( GBS_DEV ) error_log( "capture trans response: " . print_r( $response, true ) );
-					$transaction_id = $response->transaction_id;
-
-					if ( $transaction_id ) { // Check to make sure the response was valid
-
-						foreach ( $items_to_capture as $deal_id => $amount ) {
-							unset( $data['uncaptured_deals'][$deal_id] );
-						}
-						if ( !isset( $data['capture_response'] ) ) {
-							$data['capture_response'] = array();
-						}
-						$data['capture_response'][] = $response;
-						$payment->set_data( $data );
-						do_action( 'payment_captured', $payment, array_keys( $items_to_capture ) );
-						if ( $status == 'Complete' ) {
-							$payment->set_status( Group_Buying_Payment::STATUS_COMPLETE );
-							do_action( 'payment_complete', $payment );
-						} else {
-							$payment->set_status( Group_Buying_Payment::STATUS_PARTIAL );
-						}
-					}
-				}
-			}
-		}
 	}
 
 	public function credit_card_template_js() {
@@ -793,6 +717,18 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	public function display_currency_code_field() {
 		echo 'Specified in your Authorize.Net Merchant Interface.';
+	}
+
+	public function display_exp_meta_box() {
+		return GB_PATH . '/controllers/payment_processors/meta-boxes/exp-only.php';
+	}
+
+	public function display_price_meta_box() {
+		return GB_PATH . '/controllers/payment_processors/meta-boxes/no-dyn-price.php';
+	}
+
+	public function display_limits_meta_box() {
+		return GB_PATH . '/controllers/payment_processors/meta-boxes/no-tipping.php';
 	}
 
 
