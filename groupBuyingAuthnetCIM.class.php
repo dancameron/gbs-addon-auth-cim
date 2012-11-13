@@ -223,7 +223,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 
 		// Authorize
-		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthOnly', $transaction );
+		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthCapture', $transaction );
 		
 		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
 			return $response;
