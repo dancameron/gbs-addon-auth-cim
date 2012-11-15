@@ -7,7 +7,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	const API_USERNAME_OPTION = 'gb_auth_cim_username';
 	const API_PASSWORD_OPTION = 'gb_auth_cim_password';
 	const API_MODE_OPTION = 'gb_auth_cim_mode';
-	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_id';
+	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_id_v2';
 	const PAYMENT_METHOD = 'Credit (Authorize.net CIM)';
 	protected static $instance;
 	protected static $cim_request;
@@ -187,7 +187,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		do_action( 'payment_authorized', $payment );
 
 		// Mark captured
-		do_action( 'payment_captured', $payment, array_keys( $items_to_capture ) );
+		do_action( 'payment_captured', $payment, array_keys( $deal_info ) );
 		$payment->set_status( Group_Buying_Payment::STATUS_COMPLETE );
 		do_action( 'payment_complete', $payment );
 
@@ -277,7 +277,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		do_action( 'payment_authorized', $payment );
 
 		// Mark captured
-		do_action( 'payment_captured', $payment, array_keys( $items_to_capture ) );
+		do_action( 'payment_captured', $payment, array_keys( $deal_info ) );
 		$payment->set_status( Group_Buying_Payment::STATUS_COMPLETE );
 		do_action( 'payment_complete', $payment );
 
@@ -384,7 +384,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			return FALSE;
 		}
 		$customer_profile = self::$cim_request->getCustomerProfile( $profile_id );
-		//if ( GBS_DEV ) error_log( "------------- Profile ----------: " . print_r( $profile, true ) );
+		// if ( GBS_DEV ) error_log( "------------- Profile ----------: " . print_r( $profile, true ) );
 		return $customer_profile;
 	}
 
@@ -407,7 +407,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$paymentProfile->billTo->zip = $checkout->cache['billing']['postal_code'];
 		$paymentProfile->billTo->country = $checkout->cache['billing']['country'];
 		$paymentProfile->billTo->phoneNumber = '';
-		$paymentProfile->billTo->customerAddressId = $customer_address_id;
+		//$paymentProfile->billTo->customerAddressId = $customer_address_id;
 		// CC info
 		$paymentProfile->payment->creditCard->cardNumber = $this->cc_cache['cc_number'];
 		$paymentProfile->payment->creditCard->expirationDate = $this->cc_cache['cc_expiration_year'] . '-' . sprintf( "%02s", $this->cc_cache['cc_expiration_month'] );
@@ -450,6 +450,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Get profile object
 		$customer_profile = self::get_customer_profile( $profile_id );
 		if ( !$customer_profile ) {
+			// delete_user_meta( $user->ID, self::USER_META_PROFILE_ID );
 			return FALSE;
 		}
 		
