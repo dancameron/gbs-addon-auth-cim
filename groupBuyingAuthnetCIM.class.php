@@ -53,6 +53,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		add_action( 'admin_init', array( $this, 'register_settings' ), 10, 0 );
 
+		add_action( 'purchase_completed', array( $this, 'complete_purchase' ), 10, 1 );
 		add_filter( 'wp_head', array( $this, 'credit_card_template_js' ) );
 		add_filter( 'gb_payment_fields', array( $this, 'filter_payment_fields' ), 100, 3 );
 		add_filter( 'gb_payment_review_fields', array( $this, 'payment_review_fields' ), 100, 3 );
@@ -145,12 +146,14 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		// Setup deal info for the payment
 		$deal_info = array(); // creating purchased products array for payment below
+		$items_captured = array(); // Creating simple array of items that are captured
 		foreach ( $purchase->get_products() as $item ) {
 			if ( isset( $item['payment_method'][$this->get_payment_method()] ) ) {
 				if ( !isset( $deal_info[$item['deal_id']] ) ) {
 					$deal_info[$item['deal_id']] = array();
 				}
 				$deal_info[$item['deal_id']][] = $item;
+				$items_captured[] = $item['deal_id'];
 			}
 		}
 		if ( isset( $checkout->cache['shipping'] ) ) {
@@ -185,13 +188,27 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 		$payment = Group_Buying_Payment::get_instance( $payment_id );
 		do_action( 'payment_authorized', $payment );
-
-		// Mark captured
-		do_action( 'payment_captured', $payment, array_keys( $deal_info ) );
-		$payment->set_status( Group_Buying_Payment::STATUS_COMPLETE );
-		do_action( 'payment_complete', $payment );
-
 		return $payment;
+	}
+
+	/**
+	 * Complete the purchase after the process_payment action, otherwise vouchers will not be activated.
+	 *
+	 * @param Group_Buying_Purchase $purchase
+	 * @return void
+	 */
+	public function complete_purchase( Group_Buying_Purchase $purchase ) {
+		$items_captured = array(); // Creating simple array of items that are captured
+		foreach ( $purchase->get_products() as $item ) {
+			$items_captured[] = $item['deal_id'];
+		}
+		$payments = Group_Buying_Payment::get_payments_for_purchase( $purchase->get_id() );
+		foreach ( $payments as $payment_id ) {
+			$payment = Group_Buying_Payment::get_instance( $payment_id );
+			do_action( 'payment_captured', $payment, $items_captured );
+			do_action( 'payment_complete', $payment );
+			$payment->set_status( Group_Buying_Payment::STATUS_COMPLETE );
+		}
 	}
 
 	public function process_api_payment( Group_Buying_Purchase $purchase, $cc_data, $amount, $cart, $billing_address, $shipping_address, $data ) {
