@@ -114,19 +114,26 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( GBS_DEV ) error_log( "customer_address: " . print_r( $customer_address_id, true ) );
 
 		// Create new payment profile if using a different cc number
-		if ( !isset( $_POST['gb_credit_payment_method'] ) || ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) ) {
+		if ( 
+			( !isset( $_POST['gb_credit_payment_method'] ) && isset( $_POST['gb_credit_cc_cache'] ) ) || // If the customer is submitting a CC from the review page the payment method isn't passed
+			( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) ) // If payment method isset, then confirm it's not CIM
+			{
 			// Add Payment Profile
 			if ( GBS_DEV ) error_log( "old payment profile: " . print_r( $this->payment_profile_id( $profile_id ), true ) );
 			$payment_profile_id = $this->add_payment_profile( $profile_id, $customer_address_id, $checkout, $purchase );
 			if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
-		} else {
+		}
+		// Using a CIM payment profile
+		else {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
 		}
+
 		if ( !$payment_profile_id ) {
 			// self::destroy_profile( $checkout, $purchase );
 			self::set_error_messages( 'Payment Error: 3742' );
 			return FALSE;
 		}
+
 		if ( GBS_DEV ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
 
 		// Create Transaction
@@ -135,7 +142,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		if ( GBS_DEV ) error_log( '----------Response----------' . print_r( $response, TRUE ) );
 
-		if ( $response->response_reason_code != 1 ) {
+		if ( $response->approved != 1 ) {
 			$this->set_error_messages( $response->response_reason_text );
 			return FALSE;
 		}
@@ -438,9 +445,9 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		
 		// Validate
 		$validation = $response->getValidationResponse();
-		if ( $validation->error ) {
+		if ( $response->approved != 1 ) {
 			if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
-			self::set_error_messages( $validation->response_reason_text );
+			self::set_error_messages( self::__('Credit Card Validation Declined.') );
 			return FALSE;
 		}
 
