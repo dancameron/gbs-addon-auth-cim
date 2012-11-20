@@ -445,7 +445,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		
 		// Validate
 		$validation = $response->getValidationResponse();
-		if ( $response->approved != 1 ) {
+		if ( $validation->approved != 1 ) {
 			if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
 			self::set_error_messages( self::__('Credit Card Validation Declined.') );
 			return FALSE;
