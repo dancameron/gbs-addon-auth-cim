@@ -387,8 +387,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( !$user_id ) {
 			$user_id = get_current_user_id();
 		}
-		if ( self::get_customer_profile_id( $user_id ) ) {
-			return self::payment_profile_id( $user_id );
+		if ( $profile_id = self::get_customer_profile_id( $user_id ) ) {
+			return self::payment_profile_id( $profile_id, $user_id );
 		}
 		return FALSE;
 	}
