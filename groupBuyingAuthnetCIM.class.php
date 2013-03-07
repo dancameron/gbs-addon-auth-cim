@@ -318,7 +318,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$paymentProfile->billTo->zip = $checkout->cache['billing']['postal_code'];
 		$paymentProfile->billTo->country = $checkout->cache['billing']['country'];
 		$paymentProfile->billTo->phoneNumber = '';
-		$paymentProfile->billTo->customerAddressId = $customer_address_id;
+		//$paymentProfile->billTo->customerAddressId = $customer_address_id;
 		// CC info
 		$paymentProfile->payment->creditCard->cardNumber = $this->cc_cache['cc_number'];
 		$paymentProfile->payment->creditCard->expirationDate = $this->cc_cache['cc_expiration_year'] . '-' . sprintf( "%02s", $this->cc_cache['cc_expiration_month'] );
