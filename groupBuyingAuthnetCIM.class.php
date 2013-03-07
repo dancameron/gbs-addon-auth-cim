@@ -125,8 +125,12 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Using a CIM payment profile
 		else {
 			$payment_profile_id = $this->payment_profile_id( $profile_id );
+			if ( !$payment_profile_id ) {
+				$payment_profile_id = $this->add_payment_profile( $profile_id, $customer_address_id, $checkout, $purchase );
+				if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
+			}
 		}
-
+		
 		if ( !$payment_profile_id ) {
 			// self::destroy_profile( $checkout, $purchase );
 			self::set_error_messages( 'Payment Error: 3742' );
