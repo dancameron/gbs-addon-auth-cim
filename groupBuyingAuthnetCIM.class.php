@@ -140,7 +140,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		if ( GBS_DEV ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
 
-		// Create Transaction
+		// Create AUTHORIZATION Transaction
 		$response = $this->create_transaction( $profile_id, $payment_profile_id, $customer_address_id, $checkout, $purchase );
 		$transaction_id = $response->transaction_id;
 
