@@ -691,22 +691,22 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	public function credit_card_template_js() {
 		if ( self::has_payment_profile() ) {
-?>
-<script type="text/javascript" charset="utf-8">
-	jQuery(document).ready(function() {
-		jQuery(function() {
-			jQuery('.gb_credit_card_field_wrap').fadeOut();
-		    jQuery('[name="gb_credit_payment_method"]').live( 'click', function(){
-		    	var selected = jQuery(this).val();   // get value of checked radio button
-		    	if (selected == 'cim') {
-		    		jQuery('.gb_credit_card_field_wrap').fadeOut();
-		    	} else {
-		    		jQuery('.gb_credit_card_field_wrap').fadeIn();
-		    	}
-		    });
-		});
-	});
-</script>
+			?>
+			<script type="text/javascript" charset="utf-8">
+				jQuery(document).ready(function() {
+					jQuery(function() {
+						jQuery('.gb_credit_card_field_wrap').fadeOut();
+						jQuery('[name="gb_credit_payment_method"]').live( 'click', function(){
+							var selected = jQuery(this).val();   // get value of checked radio button
+							if (selected == 'cim') {
+								jQuery('.gb_credit_card_field_wrap').fadeOut();
+							} else {
+								jQuery('.gb_credit_card_field_wrap').fadeIn();
+							}
+						});
+					});
+				});
+			</script>
 			<?php
 		}
 	}
