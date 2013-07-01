@@ -31,7 +31,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 	}
 
-	public function get_test_mode()	{
+	public function get_test_mode() {
 		if ( self::is_sandbox() ) {
 			return 'none';
 		}
@@ -113,7 +113,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( GBS_DEV ) error_log( "customer_address: " . print_r( $customer_address_id, true ) );
 
 		// Create new payment profile if using a different cc number
-		if ( 
+		if (
 			( !isset( $_POST['gb_credit_payment_method'] ) && isset( $_POST['gb_credit_cc_cache'] ) ) || // If the customer is submitting a CC from the review page the payment method isn't passed
 			( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) ) // If payment method isset, then confirm it's not CIM
 			{
@@ -130,7 +130,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 				if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
 			}
 		}
-		
+
 		if ( !$payment_profile_id ) {
 			// self::destroy_profile( $checkout, $purchase );
 			self::set_error_messages( 'Payment Error: 3742' );
@@ -203,7 +203,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		self::init_authrequest();
 
-		if ( !isset( $data['profile_id'] ) || !isset( $data['customer_address_id'] ) || !isset( $data['payment_profile_id'] ))
+		if ( !isset( $data['profile_id'] ) || !isset( $data['customer_address_id'] ) || !isset( $data['payment_profile_id'] ) )
 			return;
 
 		// Create Auth & Capture Transaction
@@ -229,7 +229,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		// Authorize
 		$response = self::$cim_request->createCustomerProfileTransaction( 'AuthOnly', $transaction );
-		
+
 		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
 			return $response;
 		}
@@ -310,17 +310,17 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$user = get_userdata( $purchase->get_user() );
 		$profile_id = get_user_meta( $user->ID, self::USER_META_PROFILE_ID, TRUE );
 
-		if ( $profile_id ) {			
+		if ( $profile_id ) {
 			return $profile_id;
 		}
-		
+
 		// Create new customer profile
 		$customerProfile = new AuthorizeNetCustomer;
-		
+
 		$customerProfile->description = gb_get_name( $purchase->get_user() );
-		
+
 		$customerProfile->merchantCustomerId = $user->ID;
-		
+
 		// $email = ( $force ) ? microtime() . '-' . $user->user_email : $user->user_email ;
 		$customerProfile->email = $user->user_email;
 
@@ -328,16 +328,16 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$response = self::$cim_request->createCustomerProfile( $customerProfile );
 
 		if ( GBS_DEV ) error_log( "create customer profile response: " . print_r( $response, true ) );
-		
+
 		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
 			$error_message = $response->xpath_xml->messages->message->text;
 
 			// If the ID already exists lets just tie it to this user, hopefully the CIM profile is based on more than just email.
-			if ( strpos( $error_message, 'duplicate record with ID' ) ) {	
+			if ( strpos( $error_message, 'duplicate record with ID' ) ) {
 				preg_match( '~ID\s+(\S+)~', $error_message, $matches );
 				$new_customer_id = $matches[1];
-				if ( !is_numeric( $new_customer_id )) {
-					self::set_error_messages( gb__('A duplicate profile was found. Please contact the site administrator.') );
+				if ( !is_numeric( $new_customer_id ) ) {
+					self::set_error_messages( gb__( 'A duplicate profile was found. Please contact the site administrator.' ) );
 					return FALSE;
 				}
 			} else {
@@ -411,18 +411,18 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$paymentProfile->payment->creditCard->cardNumber = $this->cc_cache['cc_number'];
 		$paymentProfile->payment->creditCard->expirationDate = $this->cc_cache['cc_expiration_year'] . '-' . sprintf( "%02s", $this->cc_cache['cc_expiration_month'] );
 		$paymentProfile->payment->creditCard->cardCode = $this->cc_cache['cc_cvv'];
-	
+
 		if ( GBS_DEV ) error_log( "paymentProfile: " . print_r( $paymentProfile, true ) );
 
 		// Create
 		$response = self::$cim_request->createCustomerPaymentProfile( $profile_id, $paymentProfile, self::get_test_mode() );
 		if ( GBS_DEV ) error_log( "paymentProfile response: " . print_r( $response, true ) );
-		
+
 		// Validate
 		$validation = $response->getValidationResponse();
 		if ( $validation->error ) {
 			if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
-			self::set_error_messages( self::__('Credit Card Validation Declined.') );
+			self::set_error_messages( self::__( 'Credit Card Validation Declined.' ) );
 			return FALSE;
 		}
 
@@ -451,7 +451,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( !$customer_profile ) {
 			return FALSE;
 		}
-		
+
 		// check the profile
 		if ( !empty( $customer_profile->xpath_xml->profile->paymentProfiles ) ) {
 			// Build an array of ids
@@ -460,14 +460,14 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 				$ids[] = $profile->customerPaymentProfileId;
 			}
 
-			$payment_profile_id = array_pop($ids);
+			$payment_profile_id = array_pop( $ids );
 		}
-		
+
 		// Fallback Get payment ID
 		if ( !$payment_profile_id ) {
 			$payment_profile_id = $customer_profile->getPaymentProfileId();
 		}
-		
+
 		return (int)$payment_profile_id;
 	}
 
@@ -655,7 +655,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					$transaction->customerShippingAddressId = $data['customer_address_id'];
 					$transaction->order->invoiceNumber = $payment->get_id();
 					$transaction_response = self::$cim_request->createCustomerProfileTransaction( 'AuthCapture', $transaction );
-					
+
 					// Auth.net will not allow for multiple captures on a single auth
 					// $transaction->transId = $data['transaction_id'];
 					// $transaction_response = self::$cim_request->createCustomerProfileTransaction( 'PriorAuthCapture', $transaction );
