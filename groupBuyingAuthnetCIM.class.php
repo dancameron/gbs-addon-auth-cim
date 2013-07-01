@@ -7,7 +7,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	const API_USERNAME_OPTION = 'gb_auth_cim_username';
 	const API_PASSWORD_OPTION = 'gb_auth_cim_password';
 	const API_MODE_OPTION = 'gb_auth_cim_mode';
-	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_id';
+	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_idv2';
 	const PAYMENT_METHOD = 'Credit (Authorize.net CIM)';
 	protected static $instance;
 	protected static $cim_request;
@@ -115,16 +115,17 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Create new payment profile if using a different cc number
 		if (
 			( !isset( $_POST['gb_credit_payment_method'] ) && isset( $_POST['gb_credit_cc_cache'] ) ) || // If the customer is submitting a CC from the review page the payment method isn't passed
-			( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) ) // If payment method isset, then confirm it's not CIM
+			( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] == 'cc' ) ) // If payment method isset, then confirm it's not CIM
 			{
 			// Add Payment Profile
-			if ( GBS_DEV ) error_log( "old payment profile: " . print_r( $this->payment_profile_id( $profile_id ), true ) );
 			$payment_profile_id = $this->add_payment_profile( $profile_id, $customer_address_id, $checkout, $purchase );
 			if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
 		}
 		// Using a CIM payment profile
 		else {
-			$payment_profile_id = $this->payment_profile_id( $profile_id );
+			error_log( 'post ' . print_r( $_POST, TRUE ) );
+			$payment_profile_id = ( !isset( $_POST['gb_credit_payment_method'] ) ) ? $_POST['gb_credit_payment_method'] : $checkout->cache['cim_payment_profile'];
+			error_log( 'payment profile after payment process ++++++++++++' . print_r( $payment_profile_id, TRUE ) );
 			if ( !$payment_profile_id ) {
 				$payment_profile_id = $this->add_payment_profile( $profile_id, $customer_address_id, $checkout, $purchase );
 				if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
@@ -420,8 +421,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		// Validate
 		$validation = $response->getValidationResponse();
+		if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
 		if ( $validation->error ) {
-			if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
 			self::set_error_messages( self::__( 'Credit Card Validation Declined.' ) );
 			return FALSE;
 		}
@@ -444,7 +445,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		return $payment_profile_id;
 	}
 
-	public static function payment_profile_id( $profile_id = 0, $user_id = 0 ) {
+	public static function payment_card_profiles( $profile_id = 0 ) {
 
 		// Get profile object
 		$customer_profile = self::get_customer_profile( $profile_id );
@@ -452,23 +453,12 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			return FALSE;
 		}
 
-		// check the profile
-		if ( !empty( $customer_profile->xpath_xml->profile->paymentProfiles ) ) {
-			// Build an array of ids
-			$ids = array();
-			foreach ( $customer_profile->xpath_xml->profile->paymentProfiles as $profile ) {
-				$ids[] = $profile->customerPaymentProfileId;
-			}
-
-			$payment_profile_id = array_pop( $ids );
+		$cards = array();
+		foreach ( $customer_profile->xpath_xml->profile->paymentProfiles as $profile ) {
+			$cards[(int)$profile->customerPaymentProfileId] = $profile->payment->creditCard->cardNumber;
 		}
 
-		// Fallback Get payment ID
-		if ( !$payment_profile_id ) {
-			$payment_profile_id = $customer_profile->getPaymentProfileId();
-		}
-
-		return (int)$payment_profile_id;
+		return $cards;
 	}
 
 	public static function has_payment_profile( $user_id = 0 ) {
@@ -476,7 +466,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			$user_id = get_current_user_id();
 		}
 		if ( $profile_id = self::get_customer_profile_id( $user_id ) ) {
-			return self::payment_profile_id( $profile_id, $user_id );
+			return count( self::payment_card_profiles( $profile_id ) );
 		}
 		return FALSE;
 	}
@@ -698,7 +688,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 						jQuery('.gb_credit_card_field_wrap').fadeOut();
 						jQuery('[name="gb_credit_payment_method"]').live( 'click', function(){
 							var selected = jQuery(this).val();   // get value of checked radio button
-							if (selected == 'cim') {
+							if (selected != 'cc') {
 								jQuery('.gb_credit_card_field_wrap').fadeOut();
 							} else {
 								jQuery('.gb_credit_card_field_wrap').fadeIn();
@@ -713,31 +703,29 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	public function filter_payment_fields( $fields ) {
 		if ( self::has_payment_profile() ) {
-			$customer_profile = self::get_customer_profile( $profile_id );
-			$payment_profile_id = self::payment_profile_id( $profile_id );
-			$card = '';
-			foreach ( $customer_profile->xpath_xml->profile->paymentProfiles as $profile ) {
-				if ( (int)$profile->customerPaymentProfileId == $payment_profile_id ) {
-					$card = $profile->payment->creditCard->cardNumber;
-				}
-			}
+			// modify the payment method options
 			$fields['payment_method'] = array(
 				'type' => 'radios',
 				'weight' => -10,
 				'label' => self::__( 'Payment Method' ),
 				'required' => TRUE,
-				'options' => array(
-					'cim' => self::__( 'Credit Card: ' ) . $card,
-					'cc' => self::__( 'Use Different Credit Card' )
-				),
 				'default' => 'cim',
 			);
+
+			// Add CC options to the checkout fields
+			$cards = self::payment_card_profiles( $profile_id );
+			foreach ( $cards as $payment_profile_id => $card_number ) {
+				$fields['payment_method']['options'][$payment_profile_id] = self::__( 'Credit Card: ' ) . $card_number;
+			}
+			// Default option
+			$fields['payment_method']['options']['cc'] = self::__( 'Use Different Credit Card' );
+
 		}
 		return $fields;
 	}
 
 	public function payment_review_fields( $fields, $processor, Group_Buying_Checkouts $checkout ) {
-		if ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] == 'cim' ) {
+		if ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cc' ) {
 			$fields['cim'] = array(
 				'label' => self::__( 'Primary Method' ),
 				'value' => self::__( 'Credit Card' ),
@@ -760,7 +748,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	 */
 	public function process_payment_page( Group_Buying_Checkouts $checkout ) {
 		// Don't try to validate a CIM payment
-		if ( !isset( $_POST['gb_credit_payment_method'] ) || ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] != 'cim' ) ) {
+		if ( !isset( $_POST['gb_credit_payment_method'] ) || ( isset( $_POST['gb_credit_payment_method'] ) && $_POST['gb_credit_payment_method'] == 'cc' ) ) {
 			$fields = $this->payment_fields( $checkout );
 			foreach ( array_keys( $fields ) as $key ) {
 				if ( $key == 'cc_number' ) { // catch the cc_number so it can be sanatized
@@ -773,6 +761,9 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 				}
 			}
 			$this->validate_credit_card( $this->cc_cache, $checkout );
+		}
+		elseif ( isset( $_POST['gb_credit_payment_method'] ) ) {
+			$checkout->cache['cim_payment_profile'] = $_POST['gb_credit_payment_method'];
 		}
 	}
 
