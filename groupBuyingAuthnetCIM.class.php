@@ -9,6 +9,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	const API_MODE_OPTION = 'gb_auth_cim_mode';
 	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_idv2';
 	const PAYMENT_METHOD = 'Credit (Authorize.net CIM)';
+	const AJAX_ACTION = 'cim_card_mngt';
+	const USER_CIM_CARD_OPTION = 'cim_card_mngt_hidden_VTEST2';
 	protected static $instance;
 	protected static $cim_request;
 	private $api_mode = self::MODE_TEST;
@@ -65,6 +67,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		remove_action( 'gb_checkout_action_'.Group_Buying_Checkouts::PAYMENT_PAGE, array( $this, 'process_payment_page' ) );
 		add_action( 'gb_checkout_action_'.Group_Buying_Checkouts::PAYMENT_PAGE, array( $this, 'process_payment_page' ), 20, 1 );
+
+		add_action( 'wp_ajax_cim_card_mngt', array( get_class(), 'ajax_cim' ) );
 
 	}
 
@@ -419,6 +423,23 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$response = self::$cim_request->createCustomerPaymentProfile( $profile_id, $paymentProfile, self::get_test_mode() );
 		if ( GBS_DEV ) error_log( "paymentProfile response: " . print_r( $response, true ) );
 
+		// Get profile id
+		$payment_profile_id = $response->getPaymentProfileId();
+		if ( GBS_DEV ) error_log( "payment_profile_id: " . print_r( $payment_profile_id, true ) );
+
+		// remove the payment profile is store cc is unchecked
+		if ( !isset( $_POST['gb_credit_store_cc'] ) && $payment_profile_id ) {
+			$this->remove_payment_profile( $payment_profile_id  );
+		} // if saved is check remove it from the meta so it's not hidden.
+		elseif( $payment_profile_id ) {
+			$this->save_payment_profile( $payment_profile_id );
+		}
+		else {
+			self::set_error_messages( self::__( 'Card Profile Exists: Select from Saved Cards.' ) );
+			$this->save_payment_profile( FALSE );
+			return FALSE;
+		}
+
 		// Validate
 		$validation = $response->getValidationResponse();
 		if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
@@ -427,9 +448,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			return FALSE;
 		}
 
-		// Get profile id
-		$payment_profile_id = $response->getPaymentProfileId();
-		if ( GBS_DEV ) error_log( "payment_profile_id: " . print_r( $payment_profile_id, true ) );
 
 		// In case there's an error (e.g. duplicate addition), check to see if the payment profile id is in the profile
 		if ( !$payment_profile_id ) {
@@ -679,20 +697,93 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 	}
 
+	public function ajax_cim() {
+		switch ( $_REQUEST['cim_action']) {
+			case 'remove_payment_profile':
+				self::remove_payment_profile( $_REQUEST['remove_profile'] );
+				exit();
+				break;
+			default:
+				break;
+		}
+	}
+
+	public function remove_payment_profile( $profile_id, $user_id = 0 ) {
+		if ( !$user_id ) {
+			$user_id = get_current_user_id();
+		}
+		$account_id = Group_Buying_Account::get_account_id_for_user( $user_id );
+		$hidden_profiles = get_post_meta( $account_id, self::USER_CIM_CARD_OPTION, TRUE );
+		if ( !is_array( $hidden_profiles ) ) {
+			$hidden_profiles = array();
+		}
+		$hidden_profiles[] = $profile_id;
+		update_post_meta( $account_id, self::USER_CIM_CARD_OPTION, $hidden_profiles );
+
+		// modify via CIM
+		$customer_profile = self::get_customer_profile_id( $user_id );
+		$response = self::$cim_request->deleteCustomerPaymentProfile( $customer_profile, $profile_id );
+	}
+
+	public function save_payment_profile( $profile_id, $user_id = 0 ) {
+		if ( !$user_id ) {
+			$user_id = get_current_user_id();
+		}
+		$account_id = Group_Buying_Account::get_account_id_for_user( $user_id );
+		if ( !$profile_id ) {
+			update_post_meta( $account_id, self::USER_CIM_CARD_OPTION, array() );
+			return;
+		}
+		$hidden_profiles = get_post_meta( $account_id, self::USER_CIM_CARD_OPTION, TRUE );
+		if ( !is_array( $hidden_profiles ) ) {
+			return;
+		}
+		// search for position
+		$pos = array_search( $profile_id, $hidden_profiles );
+		// remove
+		unset( $hidden_profiles[$pos] );
+		// save
+		update_post_meta( $account_id, self::USER_CIM_CARD_OPTION, $hidden_profiles );
+	}
+
+	public function is_payment_profile_hidden( $profile_id, $user_id = 0 ) {
+		if ( !$user_id ) {
+			$user_id = get_current_user_id();
+		}
+		$account_id = Group_Buying_Account::get_account_id_for_user( $user_id );
+		$hidden_profiles = get_post_meta( $account_id, self::USER_CIM_CARD_OPTION, TRUE );
+		return in_array( $profile_id, $hidden_profiles );
+	}
+
+
+
 	public function credit_card_template_js() {
 		if ( self::has_payment_profile() ) {
 			?>
+			<style type="text/css">.cim_delete_card img { opacity: .3; } .cim_delete_card:hover img { opacity: 1.0; }</style>
 			<script type="text/javascript" charset="utf-8">
 				jQuery(document).ready(function() {
 					jQuery(function() {
 						jQuery('.gb_credit_card_field_wrap').fadeOut();
+						jQuery("[for$='gb_credit_store_cc']").fadeOut();
 						jQuery('[name="gb_credit_payment_method"]').live( 'click', function(){
 							var selected = jQuery(this).val();   // get value of checked radio button
 							if (selected != 'cc') {
 								jQuery('.gb_credit_card_field_wrap').fadeOut();
 							} else {
 								jQuery('.gb_credit_card_field_wrap').fadeIn();
+								jQuery("[for$='gb_credit_store_cc']").fadeIn();
 							}
+						});
+						jQuery('.cim_delete_card').on( 'click', function(event){
+							event.preventDefault();
+							var $remove_card = jQuery( this );
+							var $payment_profile = $remove_card.attr( 'ref' );
+							jQuery.post( ajaxurl, { action: '<?php echo self::AJAX_ACTION ?>', 'cim_action': 'remove_payment_profile', remove_profile: $payment_profile },
+								function( data ) {
+									$remove_card.parent().parent().fadeOut();
+								}
+							);
 						});
 					});
 				});
@@ -715,12 +806,20 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			// Add CC options to the checkout fields
 			$cards = self::payment_card_profiles( $profile_id );
 			foreach ( $cards as $payment_profile_id => $card_number ) {
-				$fields['payment_method']['options'][$payment_profile_id] = self::__( 'Credit Card: ' ) . $card_number;
+				if ( !self::is_payment_profile_hidden( $payment_profile_id ) ) {
+					$fields['payment_method']['options'][$payment_profile_id] = self::__( 'Credit Card: ' ) . $card_number . '&nbsp;<a href="javascript:void(0)" ref="'.$payment_profile_id.'" class="cim_delete_card" title="'.gb__('Remove this CC from your account.').'"><img src="http://f.cl.ly/items/041u1f1W06451c0V361W/1372818887_delete.png"/></a>';
+				}
 			}
 			// Default option
 			$fields['payment_method']['options']['cc'] = self::__( 'Use Different Credit Card' );
 
 		}
+		$fields['store_cc'] = array(
+			'type' => 'checkbox',
+			'weight' => 10,
+			'label' => self::__( 'Save Credit Card' ),
+			'default' => TRUE
+		);
 		return $fields;
 	}
 
