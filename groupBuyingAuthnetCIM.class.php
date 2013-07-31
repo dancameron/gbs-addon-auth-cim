@@ -479,7 +479,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 
 		$cards = array();
-		if ( is_array( $customer_profile->xpath_xml->profile->paymentProfiles ) ) {
+		if ( isset( $customer_profile->xpath_xml->profile->paymentProfiles ) ) {
 			foreach ( $customer_profile->xpath_xml->profile->paymentProfiles as $profile ) {
 				$cards[(int)$profile->customerPaymentProfileId] = $profile->payment->creditCard->cardNumber;
 			}
