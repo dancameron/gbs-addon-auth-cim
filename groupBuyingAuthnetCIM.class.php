@@ -146,6 +146,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		if ( GBS_DEV ) error_log( "payment_profile_id:" . print_r( $payment_profile_id, true ) );
 
+		/*/
 		// Create AUTHORIZATION Transaction
 		$response = $this->create_transaction( $profile_id, $payment_profile_id, $customer_address_id, $checkout, $purchase );
 		$transaction_id = $response->transaction_id;
@@ -166,6 +167,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// convert the response object to an array for the payment record
 		$response_json  = json_encode( $response );
 		$response_array = json_decode( $response_json, true );
+		/**/
 
 		// Setup deal info for the payment
 		$deal_info = array(); // creating purchased products array for payment below
@@ -193,11 +195,11 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 				'purchase' => $purchase->get_id(),
 				'amount' => gb_get_number_format( $purchase->get_total( $this->get_payment_method() ) ),
 				'data' => array(
-					'transaction_id' => $transaction_id,
+					//'transaction_id' => $transaction_id,
 					'profile_id' => $profile_id,
 					'payment_profile_id' => $payment_profile_id,
 					'customer_address_id' => $customer_address_id,
-					'api_response' => $response_array,
+					//'api_response' => $response_array,
 					'uncaptured_deals' => $deal_info,
 					//'masked_cc_number' => $this->mask_card_number( $this->cc_cache['cc_number'] ), // save for possible credits later
 				),
