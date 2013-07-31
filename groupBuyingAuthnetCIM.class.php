@@ -341,8 +341,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 		if ( GBS_DEV ) error_log( "create customer profile response: " . print_r( $response, true ) );
 
-		if ( $response->xpath_xml->messages->resultCode == "Error" ) {
-			$error_message = $response->xpath_xml->messages->message->text;
+		if ( $response->isError() ) {
+			$error_message = $response->getMessageText();
 
 			// If the ID already exists lets just tie it to this user, hopefully the CIM profile is based on more than just email.
 			if ( strpos( $error_message, 'duplicate record with ID' ) ) {
@@ -353,7 +353,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					return FALSE;
 				}
 			} else {
-				self::set_error_messages( $response->xpath_xml->messages->message->text );
+				self::set_error_messages( $error_message );
 				return FALSE;
 			}
 		}
@@ -450,8 +450,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		// Validate
 		$validation = $response->getValidationResponse();
 		if ( GBS_DEV ) error_log( "validation response: " . print_r( $validation, true ) );
-		if ( $validation->error ) {
-			self::set_error_messages( self::__( 'Credit Card Validation Declined.' ) );
+		if ( $validation->isError() ) {
+			self::set_error_messages( $validation->getMessageCode() );
 			return FALSE;
 		}
 
