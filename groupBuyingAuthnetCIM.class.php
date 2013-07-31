@@ -10,7 +10,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_idv2';
 	const PAYMENT_METHOD = 'Credit (Authorize.net CIM)';
 	const AJAX_ACTION = 'cim_card_mngt';
-	const USER_CIM_CARD_OPTION = 'cim_card_mngt_hidden_VTEST2';
+	const USER_CIM_CARD_OPTION = 'cim_card_mngt_hidden_v2';
 	protected static $instance;
 	protected static $cim_request;
 	private $api_mode = self::MODE_TEST;
@@ -431,7 +431,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( !isset( $_POST['gb_credit_store_cc'] ) && $payment_profile_id ) {
 			$this->remove_payment_profile( $payment_profile_id  );
 		} // if saved is check remove it from the meta so it's not hidden.
-		elseif( $payment_profile_id ) {
+		elseif ( $payment_profile_id ) {
 			$this->save_payment_profile( $payment_profile_id );
 		}
 		else {
@@ -698,13 +698,13 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	}
 
 	public function ajax_cim() {
-		switch ( $_REQUEST['cim_action']) {
-			case 'remove_payment_profile':
-				self::remove_payment_profile( $_REQUEST['remove_profile'] );
-				exit();
-				break;
-			default:
-				break;
+		switch ( $_REQUEST['cim_action'] ) {
+		case 'remove_payment_profile':
+			self::remove_payment_profile( $_REQUEST['remove_profile'] );
+			exit();
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -807,7 +807,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			$cards = self::payment_card_profiles( $profile_id );
 			foreach ( $cards as $payment_profile_id => $card_number ) {
 				if ( !self::is_payment_profile_hidden( $payment_profile_id ) ) {
-					$fields['payment_method']['options'][$payment_profile_id] = self::__( 'Credit Card: ' ) . $card_number . '&nbsp;<a href="javascript:void(0)" ref="'.$payment_profile_id.'" class="cim_delete_card" title="'.gb__('Remove this CC from your account.').'"><img src="http://f.cl.ly/items/041u1f1W06451c0V361W/1372818887_delete.png"/></a>';
+					$fields['payment_method']['options'][$payment_profile_id] = self::__( 'Credit Card: ' ) . $card_number . '&nbsp;<a href="javascript:void(0)" ref="'.$payment_profile_id.'" class="cim_delete_card" title="'.gb__( 'Remove this CC from your account.' ).'"><img src="http://f.cl.ly/items/041u1f1W06451c0V361W/1372818887_delete.png"/></a>';
 				}
 			}
 			// Default option
