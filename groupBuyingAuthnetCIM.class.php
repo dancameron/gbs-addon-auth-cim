@@ -130,7 +130,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			error_log( 'post ' . print_r( $_POST, TRUE ) );
 			$payment_profile_id = ( !isset( $_POST['gb_credit_payment_method'] ) ) ? $_POST['gb_credit_payment_method'] : $checkout->cache['cim_payment_profile'];
 			error_log( 'payment profile after payment process ++++++++++++' . print_r( $payment_profile_id, TRUE ) );
-			if ( !$payment_profile_id ) {
+			if ( !is_numeric( $payment_profile_id ) ) {
 				$payment_profile_id = $this->add_payment_profile( $profile_id, $customer_address_id, $checkout, $purchase );
 				if ( GBS_DEV ) error_log( "adding payment profile: " . print_r( $payment_profile_id, true ) );
 			}
@@ -316,7 +316,14 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		$profile_id = get_user_meta( $user->ID, self::USER_META_PROFILE_ID, TRUE );
 
 		if ( $profile_id ) {
-			return $profile_id;
+
+			// Check if profile exists
+			$response = self::$cim_request->getCustomerProfile( $profile_id );
+			// Check to make sure the profile doesn't already exists
+			if ( !$response->isError() || $response->getMessageCode() != 'E00040' ) {
+				return $profile_id;
+			} // otherwise continue to create a profile
+			if ( GBS_DEV ) error_log( "get customer profile from create_profile resulted in an error: " . print_r( $response, true ) );
 		}
 
 		// Create new customer profile
@@ -863,7 +870,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			}
 			$this->validate_credit_card( $this->cc_cache, $checkout );
 		}
-		elseif ( isset( $_POST['gb_credit_payment_method'] ) ) {
+		elseif ( isset( $_POST['gb_credit_payment_method'] ) && is_numeric( $_POST['gb_credit_payment_method'] ) ) {
 			$checkout->cache['cim_payment_profile'] = $_POST['gb_credit_payment_method'];
 		}
 	}
