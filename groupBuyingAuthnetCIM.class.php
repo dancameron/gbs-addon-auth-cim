@@ -7,10 +7,10 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	const API_USERNAME_OPTION = 'gb_auth_cim_username';
 	const API_PASSWORD_OPTION = 'gb_auth_cim_password';
 	const API_MODE_OPTION = 'gb_auth_cim_mode';
-	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_idv2';
+	const USER_META_PROFILE_ID = 'gb_authnet_cim_profile_id';
 	const PAYMENT_METHOD = 'Credit (Authorize.net CIM)';
 	const AJAX_ACTION = 'cim_card_mngt';
-	const USER_CIM_CARD_OPTION = 'cim_card_mngt_hidden_v2';
+	const USER_CIM_CARD_OPTION = 'cim_card_mngt_hidden';
 	protected static $instance;
 	protected static $cim_request;
 	private $api_mode = self::MODE_TEST;
