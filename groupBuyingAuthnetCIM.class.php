@@ -777,28 +777,25 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			<style type="text/css">.cim_delete_card img { opacity: .3; } .cim_delete_card:hover img { opacity: 1.0; }</style>
 			<script type="text/javascript" charset="utf-8">
 				jQuery(document).ready(function() {
-					jQuery(function() {
-						jQuery('.gb_credit_card_field_wrap').fadeOut();
-						jQuery("[for$='gb_credit_store_cc']").fadeOut();
-						jQuery('[name="gb_credit_payment_method"]').live( 'click', function(){
-							var selected = jQuery(this).val();   // get value of checked radio button
-							if (selected != 'cc') {
-								jQuery('.gb_credit_card_field_wrap').fadeOut();
-							} else {
-								jQuery('.gb_credit_card_field_wrap').fadeIn();
-								jQuery("[for$='gb_credit_store_cc']").fadeIn();
+					jQuery('[name="gb_credit_payment_method"]').on( 'click', function(event){
+						var selected = jQuery(this).val();   // get value of checked radio button
+						if (selected != 'credit') {
+							jQuery('.gb_credit_card_field_wrap').fadeOut();
+							jQuery("[for$='gb_credit_store_cc']").fadeOut();
+						} else {
+							jQuery('.gb_credit_card_field_wrap').fadeIn();
+							jQuery("[for$='gb_credit_store_cc']").fadeIn();
+						}
+					});
+					jQuery('.cim_delete_card').on( 'click', function(event){
+						event.preventDefault();
+						var $remove_card = jQuery( this );
+						var $payment_profile = $remove_card.attr( 'ref' );
+						jQuery.post( ajaxurl, { action: '<?php echo self::AJAX_ACTION ?>', 'cim_action': 'remove_payment_profile', remove_profile: $payment_profile },
+							function( data ) {
+								$remove_card.parent().parent().fadeOut();
 							}
-						});
-						jQuery('.cim_delete_card').on( 'click', function(event){
-							event.preventDefault();
-							var $remove_card = jQuery( this );
-							var $payment_profile = $remove_card.attr( 'ref' );
-							jQuery.post( ajaxurl, { action: '<?php echo self::AJAX_ACTION ?>', 'cim_action': 'remove_payment_profile', remove_profile: $payment_profile },
-								function( data ) {
-									$remove_card.parent().parent().fadeOut();
-								}
-							);
-						});
+						);
 					});
 				});
 			</script>
@@ -808,15 +805,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	public function filter_payment_fields( $fields ) {
 		if ( self::has_payment_profile() ) {
-			// modify the payment method options
-			$fields['payment_method'] = array(
-				'type' => 'radios',
-				'weight' => -10,
-				'label' => self::__( 'Payment Method' ),
-				'required' => TRUE,
-				'default' => 'cim',
-			);
-
 			// Add CC options to the checkout fields
 			$cards = self::payment_card_profiles( $profile_id );
 			foreach ( $cards as $payment_profile_id => $card_number ) {
@@ -824,9 +812,6 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 					$fields['payment_method']['options'][$payment_profile_id] = self::__( 'Credit Card: ' ) . $card_number . '&nbsp;<a href="javascript:void(0)" ref="'.$payment_profile_id.'" class="cim_delete_card" title="'.gb__( 'Remove this CC from your account.' ).'"><img src="http://f.cl.ly/items/041u1f1W06451c0V361W/1372818887_delete.png"/></a>';
 				}
 			}
-			// Default option
-			$fields['payment_method']['options']['cc'] = self::__( 'Use Different Credit Card' );
-
 		}
 		$fields['store_cc'] = array(
 			'type' => 'checkbox',
