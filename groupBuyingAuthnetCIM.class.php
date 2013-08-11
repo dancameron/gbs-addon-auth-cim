@@ -650,7 +650,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 	}
 
-	public  function capture_payment( Group_Buying_Payment $payment ) {
+	public function capture_payment( Group_Buying_Payment $payment ) {
 
 		// is this the right payment processor? does the payment still need processing?
 		if ( $payment->get_payment_method() == $this->get_payment_method() && $payment->get_status() != Group_Buying_Payment::STATUS_COMPLETE ) {
