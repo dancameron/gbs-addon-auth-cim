@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Group Buying Payment Processor - Authorize.net CIM
-Version: 2.0 Beta
+Version: 2.1 Beta
 Plugin URI: http://sproutventure.com/wordpress/group-buying
 Description: Authorize.net CIM Add-on.
 Author: Sprout Venture
