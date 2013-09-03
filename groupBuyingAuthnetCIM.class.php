@@ -60,14 +60,14 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	public static function accepted_cards() {
 		$accepted_cards = array(
-				'visa',
-				'mastercard',
-				'amex',
-				// 'diners',
-				// 'discover',
-				// 'jcb',
-				// 'maestro'
-			);
+			'visa',
+			'mastercard',
+			'amex',
+			// 'diners',
+			// 'discover',
+			// 'jcb',
+			// 'maestro'
+		);
 		return apply_filters( 'gb_accepted_credit_cards', $accepted_cards );
 	}
 
@@ -87,7 +87,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		if ( $this->single_deal == 'enabled' ) { // force authorization on single deal purchasing
 			$this->initial_authorization = 1;
 			// pop the products array
-			add_action('gb_cart_load_products_get', array( get_class(), 'pop_cart_products'), 100, 2 );
+			add_action( 'gb_cart_load_products_get', array( get_class(), 'pop_cart_products' ), 100, 2 );
 		}
 		add_action( 'admin_init', array( $this, 'register_settings' ), 10, 0 );
 		add_action( 'purchase_completed', array( $this, 'capture_purchase' ), 10, 1 );
@@ -115,6 +115,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	/**
 	 * Load up the library and instantiate into a static object
+	 *
 	 * @return OBJECT
 	 */
 	public static function init_authrequest() {
@@ -128,13 +129,14 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	/**
 	 * Limit the cart to single item purchasing.
-	 * @param  array            $products
-	 * @param  Group_Buying_Cart $cart
+	 *
+	 * @param array   $products
+	 * @param Group_Buying_Cart $cart
 	 * @return                       product array
 	 */
 	public static function pop_cart_products( $products, Group_Buying_Cart $cart ) {
-		if ( count($products) > 1 ) {
-			return array(array_pop($products));
+		if ( count( $products ) > 1 ) {
+			return array( array_pop( $products ) );
 		}
 		return $products;
 	}
@@ -499,7 +501,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	/**
 	 * Build an array of card from the profile
-	 * @param  integer $profile_id CIM profile ID
+	 *
+	 * @param integer $profile_id CIM profile ID
 	 * @return array
 	 */
 	public static function payment_card_profiles( $profile_id = 0 ) {
@@ -519,7 +522,8 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 	/**
 	 * Does the user have any card profiles
-	 * @param   $user_id
+	 *
+	 * @param unknown $user_id
 	 * @return
 	 */
 	public static function has_payment_profile( $user_id = 0 ) {
@@ -793,8 +797,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 
 	public function credit_card_template_js() {
-		if ( self::has_payment_profile() ) {
-			?>
+		if ( self::has_payment_profile() ) { ?>
 			<style type="text/css">.cim_delete_card img { opacity: .3; } .cim_delete_card:hover img { opacity: 1.0; }</style>
 			<script type="text/javascript" charset="utf-8">
 				jQuery(document).ready(function() {
@@ -819,8 +822,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 						);
 					});
 				});
-			</script>
-			<?php
+			</script> <?php 
 		}
 	}
 
@@ -830,7 +832,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 			if ( !isset( $fields['payment_method']['type'] ) ) {
 				$fields['payment_method']['type'] = 'radios';
 				$fields['payment_method']['weight'] = 0;
-				$fields['payment_method']['label'] = self::__('Payment Method');
+				$fields['payment_method']['label'] = self::__( 'Payment Method' );
 				$fields['payment_method']['required'] = TRUE;
 				$fields['payment_method']['options']['credit'] = self::load_view_to_string( 'checkout/credit-card-option', array( 'accepted_cards' => self::accepted_cards() ) );
 			}
@@ -931,7 +933,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 	public function display_api_preauth_field() {
 		echo '<label><input type="radio" name="'.self::PROCESS_PAYMENT_AUTHOIZATION_OPTION.'" value="1" '.checked( 1, $this->initial_authorization, FALSE ).'/> '.self::__( 'Authorize card before checkout.' ).'</label><p class="description">'.self::__( 'Regardless if the same authorization can be used for a future payment capture, i.e. authorizations for orders with items that have differing tipping points could not be used. Authorizations that cannot be used are now voided (ver. 2.1).' ).'</p>';
 		echo '<label><input type="radio" name="'.self::PROCESS_PAYMENT_AUTHOIZATION_OPTION.'" value="0" '.checked( 0, $this->initial_authorization, FALSE ).'/> '.self::__( 'Do not run an authorization before checkout completes.' ).'</label><p class="description">'.self::__( 'Not a recomended setting.' ).'</p>';
-		printf( '<p><label for="%s"><input type="checkbox" value="enabled" name="%s" %s /> %s</label></p><p class="description">%s</p>', self::SINGLE_DEAL_PURCHASING, self::SINGLE_DEAL_PURCHASING, checked( 'enabled', $this->single_deal, FALSE ), self::__('Disable cart and limit purchasing to a single item'),  self::__('This will allow for the every pre-authorization to be used for  payment capturing when the deal tips (instead of the possibility of an authorization being voided and new auth_capture created).') );
+		printf( '<p><label for="%s"><input type="checkbox" value="enabled" name="%s" %s /> %s</label></p><p class="description">%s</p>', self::SINGLE_DEAL_PURCHASING, self::SINGLE_DEAL_PURCHASING, checked( 'enabled', $this->single_deal, FALSE ), self::__( 'Disable cart and limit purchasing to a single item' ),  self::__( 'This will allow for the every pre-authorization to be used for  payment capturing when the deal tips (instead of the possibility of an authorization being voided and new auth_capture created).' ) );
 	}
 
 	public function display_currency_code_field() {
