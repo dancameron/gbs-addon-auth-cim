@@ -226,7 +226,7 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 
 			// remove the payment profile if store cc is unchecked
 			if ( $new_profile_created ) {
-				if ( !isset( $_POST['gb_credit_store_cc'] ) || !isset( $checkout->cache['gb_credit_store_cc'] ) ) {
+				if ( !isset( $_POST['gb_credit_store_cc'] ) && !isset( $checkout->cache['gb_credit_store_cc'] ) ) {
 					$this->remove_payment_profile( $payment_profile_id );
 					if ( GBS_DEV ) error_log( '----------DELETE PROFILE----------' . print_r( $payment_profile_id, TRUE ) );
 				}
@@ -894,6 +894,10 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 		elseif ( isset( $_POST['gb_credit_payment_method'] ) && is_numeric( $_POST['gb_credit_payment_method'] ) ) {
 			$checkout->cache['cim_payment_profile'] = $_POST['gb_credit_payment_method'];
+		}
+
+		if ( isset( $_POST['gb_credit_store_cc'] ) ) {
+			$checkout->cache['gb_credit_store_cc'] = TRUE;
 		}
 	}
 
