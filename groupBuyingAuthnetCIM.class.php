@@ -791,6 +791,9 @@ class Group_Buying_AuthnetCIM extends Group_Buying_Credit_Card_Processors {
 		}
 		$account_id = Group_Buying_Account::get_account_id_for_user( $user_id );
 		$hidden_profiles = get_post_meta( $account_id, self::USER_CIM_CARD_OPTION, TRUE );
+		if ( !is_array( $hidden_profiles ) ) {
+			return FALSE;
+		}
 		return in_array( $profile_id, $hidden_profiles );
 	}
 
